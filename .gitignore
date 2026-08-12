@@ -5,3 +5,4 @@ __pycache__/
 .vscode/
 .idea/
 static/images/
+attendance_system_backup.sql
