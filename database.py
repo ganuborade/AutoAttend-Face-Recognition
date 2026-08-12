@@ -1,5 +1,5 @@
-import os
 import mysql.connector
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,11 +8,11 @@ load_dotenv()
 class Database:
 
     def __init__(self):
-        self.host = os.getenv("DB_HOST", "localhost")
-        self.port = int(os.getenv("DB_PORT", "3306"))
-        self.user = os.getenv("DB_USER", "root")
-        self.password = os.getenv("DB_PASSWORD", "")
-        self.database = os.getenv("DB_NAME", "attendance_system")
+        self.host = os.getenv("DB_HOST")
+        self.port = int(os.getenv("DB_PORT", 3306))
+        self.user = os.getenv("DB_USER")
+        self.password = os.getenv("DB_PASSWORD")
+        self.database = os.getenv("DB_NAME")
 
     def connect(self):
         try:
@@ -40,7 +40,7 @@ class Database:
                 return True
 
             except Exception as e:
-                print(f"Database query error: {e}")
+                print(f"Query execution error: {e}")
                 db.rollback()
                 return False
 
@@ -58,11 +58,10 @@ class Database:
 
             try:
                 cursor.execute(query, params or ())
-                result = cursor.fetchall()
-                return result
+                return cursor.fetchall()
 
             except Exception as e:
-                print(f"Database fetch error: {e}")
+                print(f"Fetch error: {e}")
                 return []
 
             finally:
@@ -79,11 +78,10 @@ class Database:
 
             try:
                 cursor.execute(query, params or ())
-                result = cursor.fetchone()
-                return result
+                return cursor.fetchone()
 
             except Exception as e:
-                print(f"Database fetch error: {e}")
+                print(f"Fetch error: {e}")
                 return None
 
             finally:

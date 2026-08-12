@@ -1760,4 +1760,8 @@ def verify_registration_otp():
 if __name__ == '__main__':
     from upgrade_db_v7 import upgrade_database
     upgrade_database()
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', '5000')), debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 5000)),
+        debug=False
+    )
