@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Start Lecture | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 mt-5">
+        <div class="glass-card">
+            <div class="text-center mb-4">
+                <div class="d-inline-block p-3 rounded-circle mb-3" style="background: rgba(255,65,108,0.2);">
+                    <i class="fas fa-video fa-2x text-danger"></i>
+                </div>
+                <h2>Start New Lecture</h2>
+                <p class="text-muted">Enter the lecture details to begin the live facial recognition stream.</p>
+            </div>
+            
+            <form action="/start_lecture" method="POST">
+                <div class="row">
+                    <div class="col-md-6 mb-3 text-start">
+                        <label class="form-label text-muted fw-bold small">Subject Name or Code</label>
+                        <input type="text" name="subject" class="form-control" placeholder="e.g. Data Structures" required>
+                    </div>
+                    <div class="col-md-6 mb-3 text-start">
+                        <label class="form-label text-muted fw-bold small">Lecture Number</label>
+                        <input type="number" name="lecture_no" class="form-control" placeholder="e.g. 1" required min="1">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3 text-start">
+                        <label class="form-label text-muted fw-bold small">Year</label>
+                        <select name="year" class="form-select" required>
+                            <option value="" disabled selected>Select Year</option>
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3 text-start">
+                        <label class="form-label text-muted fw-bold small">Branch</label>
+                        <select name="branch" class="form-select" required>
+                            <option value="" disabled selected>Select Branch</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Mechanical">Mechanical</option>
+                            <option value="Civil">Civil</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-4 text-start">
+                        <label class="form-label text-muted fw-bold small">Division</label>
+                        <select name="division" class="form-select" required>
+                            <option value="" disabled selected>Select Div</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg w-100" style="background: linear-gradient(135deg, #4facfe, #00f2fe); border: none;">
+                    <i class="fas fa-play me-2"></i> Start Camera Stream
+                </button>
+            </form>
+            
+            <div class="mt-4 text-center">
+                <small class="text-muted"><i class="fas fa-info-circle me-1"></i> The camera will only mark students present who belong to the selected Year, Branch, and Division.</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

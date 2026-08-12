@@ -1,0 +1,35 @@
+{% extends 'base.html' %} <!-- We use the default base since user might not be logged in to a specific portal -->
+
+{% block title %}Verify Registration | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-6 col-lg-5">
+        <div class="glass-card shadow-lg border-0 p-5">
+            <div class="text-center mb-4">
+                <i class="fas fa-envelope-open-text fa-3x text-info mb-3"></i>
+                <h3 class="text-white fw-bold mb-1">Verify Your Email</h3>
+                <p class="text-muted small">We've sent a 6-digit OTP to your registered email.</p>
+            </div>
+            
+            <form action="/verify_registration_otp" method="POST">
+                <div class="mb-4">
+                    <label class="form-label text-muted fw-bold text-uppercase small"><i class="fas fa-key me-1"></i> Enter OTP</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-hashtag"></i></span>
+                        <input type="text" name="otp" class="form-control bg-dark text-white border-secondary" placeholder="123456" required maxlength="6" pattern="\d{6}" autocomplete="one-time-code">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-info btn-lg w-100 fw-bold rounded-pill shadow-sm mb-3">
+                    <i class="fas fa-check-circle me-2"></i> Verify & Complete Registration
+                </button>
+            </form>
+            
+            <div class="text-center mt-3">
+                <p class="text-muted small">Didn't receive the email? <a href="{{ url_for('home') }}" class="text-info text-decoration-none fw-bold">Cancel & Try Again</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

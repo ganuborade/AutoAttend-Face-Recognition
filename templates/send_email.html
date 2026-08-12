@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Send Alerts | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-envelope text-warning me-2"></i> Attendance Alerts</h2>
+            <p class="text-muted mb-0">Select absent students to send email notifications.</p>
+        </div>
+        
+        <form action="/send_email" method="GET" class="d-flex align-items-center">
+            <label class="me-2 text-muted fw-bold">Filter by Lecture:</label>
+            <input type="text" name="lecture_no" class="form-control form-control-sm me-2" style="width: 100px;" value="{{ lecture_no }}" required>
+            <button type="submit" class="btn btn-sm btn-outline-light">Filter</button>
+        </form>
+    </div>
+
+    <!-- Frontend Search Bar -->
+    <div class="mb-3">
+        <input type="text" id="emailSearch" class="form-control bg-dark text-white border-secondary" placeholder="Search by student name..." onkeyup="filterStudents()">
+    </div>
+
+    <form action="/send_email" method="POST">
+        <input type="hidden" name="lecture_no" value="{{ lecture_no }}">
+        
+        <div class="table-responsive mb-4">
+            <table class="table table-hover table-borderless align-middle">
+                <thead style="background: rgba(0,0,0,0.2);">
+                    <tr>
+                        <th class="py-3 px-4 rounded-start" style="width: 50px;">
+                            <input class="form-check-input" type="checkbox" id="selectAll" onclick="toggleSelectAll()">
+                        </th>
+                        <th class="py-3 px-4">Roll No.</th>
+                        <th class="py-3 px-4">Student Name</th>
+                        <th class="py-3 px-4">Email Address</th>
+                        <th class="py-3 px-4 text-center rounded-end">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in absentees %}
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td class="py-3 px-4">
+                            <input class="form-check-input student-checkbox" type="checkbox" name="selected_students" value="{{ student[0] }}" checked>
+                        </td>
+                        <td class="py-3 px-4 fw-bold text-warning">{{ student[0] }}</td>
+                        <td class="py-3 px-4">{{ student[1] }}</td>
+                        <td class="py-3 px-4 text-muted">{{ student[2] }}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="badge bg-danger bg-opacity-25 text-danger border border-danger rounded-pill px-3 py-2">
+                                Absent
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fas fa-check-circle fa-3x mb-3 text-success opacity-50"></i>
+                            <h5>All students were present!</h5>
+                            <p>No absentees found for Lecture {{ lecture_no }}.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if absentees %}
+        <div class="d-flex justify-content-end align-items-center">
+            <span class="text-muted me-3"><i class="fas fa-info-circle me-1"></i> Ensure you have internet connection</span>
+            <button type="submit" class="btn btn-warning fw-bold px-4">
+                <i class="fas fa-paper-plane me-2"></i> Send Selected Alerts
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleSelectAll() {
+        var selectAll = document.getElementById('selectAll').checked;
+        var checkboxes = document.getElementsByClassName('student-checkbox');
+        for (var i = 0; i < checkboxes.length; i++) {
+            // Only toggle if the row is visible
+            var row = checkboxes[i].closest('tr');
+            if (row.style.display !== 'none') {
+                checkboxes[i].checked = selectAll;
+            }
+        }
+    }
+
+    function filterStudents() {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById("emailSearch");
+        filter = input.value.toUpperCase();
+        table = document.querySelector(".table");
+        tr = table.getElementsByTagName("tr");
+
+        for (i = 1; i < tr.length; i++) { // Skip header
+            td = tr[i].getElementsByTagName("td")[2]; // Index 2 is Student Name
+            if (td) {
+                txtValue = td.textContent || td.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

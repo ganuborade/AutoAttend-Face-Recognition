@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+    <div>
+        <h2 class="mb-0"><i class="fas fa-user-circle text-primary me-2"></i> My Profile</h2>
+        <p class="text-muted mb-0">View and update your personal information.</p>
+    </div>
+    <div>
+        <a href="/change_password" class="btn btn-outline-warning rounded-pill"><i class="fas fa-key me-2"></i> Change Password</a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="glass-card">
+            <h4 class="mb-4 text-info">Teacher Information</h4>
+            <form action="/teacher_profile" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">Username</label>
+                        <input type="text" class="form-control" value="{{ user[1] }}" readonly disabled>
+                        <small class="text-muted">Username cannot be changed.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">Full Name</label>
+                        <input type="text" name="name" class="form-control" value="{{ user[0] }}" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">Mobile Number</label>
+                        <input type="text" name="mobile" class="form-control" value="{{ user[2] }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">Email Address</label>
+                        <input type="email" name="email" class="form-control" value="{{ user[4] }}" required>
+                    </div>
+                    
+                    <div class="col-12">
+                        <label class="form-label text-muted fw-bold">Address</label>
+                        <input type="text" name="address" class="form-control" value="{{ user[3] }}" required>
+                    </div>
+                    
+                    <div class="col-md-12">
+                        <label class="form-label text-muted fw-bold">Sex (Gender)</label>
+                        <select name="sex" class="form-select text-white" style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 15px;" required>
+                            <option value="Male" class="text-dark" {% if user[7] == 'Male' %}selected{% endif %}>Male</option>
+                            <option value="Female" class="text-dark" {% if user[7] == 'Female' %}selected{% endif %}>Female</option>
+                            <option value="Other" class="text-dark" {% if user[7] == 'Other' %}selected{% endif %}>Other</option>
+                            <option value="Prefer not to say" class="text-dark" {% if user[7] == 'Prefer not to say' or user[7] == 'Not Specified' %}selected{% endif %}>Prefer not to say</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">College</label>
+                        <input type="text" name="college" class="form-control" value="{{ user[5] }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">University</label>
+                        <input type="text" name="university" class="form-control" value="{{ user[6] }}" required>
+                    </div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-danger px-4 fw-bold" onclick="if(confirm('Are you sure you want to delete your profile? This action cannot be undone and will delete all your students and attendance records.')) window.location.href='/request_delete_profile';"><i class="fas fa-trash me-2"></i> Delete Profile</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold"><i class="fas fa-save me-2"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

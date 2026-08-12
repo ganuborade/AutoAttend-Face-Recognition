@@ -1,0 +1,89 @@
+{% extends 'hod_base.html' if is_hod else 'base.html' %}
+
+{% block title %}Capturing Biometrics | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="glass-card text-center">
+            <h2 class="mb-3 text-primary"><i class="fas fa-camera-retro me-2"></i> Capturing Face Data</h2>
+            <p class="text-muted mb-4">Please look directly into the camera. We are capturing 30 frames for the AI model.</p>
+            
+            <div class="bg-dark rounded p-2 mb-4 mx-auto" style="border: 2px solid rgba(79, 172, 254, 0.5); width: 100%; max-width: 640px; min-height: 480px; position: relative;">
+                <img src="/video_feed/capture/{{ roll }}?name={{ name }}&email={{ email }}" alt="Capture Feed" style="width: 100%; border-radius: 8px;">
+                
+                <!-- Overlay for processing text -->
+                <div id="processingOverlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); border-radius: 8px; justify-content: center; align-items: center; flex-direction: column;">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+                    <h4 class="text-white">Training AI Model...</h4>
+                    <p class="text-muted">Please wait. Sending welcome email...</p>
+                    <a href="{% if is_hod %}/hod/teacher/{{ teacher_id }}/students{% else %}/view_students{% endif %}" class="btn btn-primary d-none mt-3" id="doneBtn">
+                        <i class="fas fa-check me-2"></i> Done, View Students
+                    </a>
+                </div>
+            </div>
+            
+            <div class="progress mb-3 bg-dark" style="height: 25px;">
+                <div id="captureProgress" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%">0%</div>
+            </div>
+            
+            <p id="statusText" class="text-info fw-bold">Connecting to camera...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const progressBar = document.getElementById('captureProgress');
+    const statusText = document.getElementById('statusText');
+    const overlay = document.getElementById('processingOverlay');
+    const roll = "{{ roll }}";
+    
+    let progress = 0;
+    
+    // Animate progress bar slowly while capturing
+    const captureInterval = setInterval(() => {
+        if (progress < 70) {
+            progress += 2;
+            progressBar.style.width = progress + '%';
+            progressBar.innerText = progress + '%';
+            statusText.innerText = "Analyzing facial features and capturing data...";
+        }
+    }, 200);
+
+    // Poll the backend for the actual status
+    const statusInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/check_status/' + roll);
+            const data = await response.json();
+            
+            if (data.status === 'processing') {
+                clearInterval(captureInterval);
+                progress = 90;
+                progressBar.style.width = progress + '%';
+                progressBar.innerText = progress + '%';
+                progressBar.classList.remove('bg-primary');
+                progressBar.classList.add('bg-warning');
+                statusText.innerText = "Processing complete. Training LBPH model and sending email...";
+                overlay.style.display = 'flex';
+            } 
+            else if (data.status === 'done') {
+                clearInterval(statusInterval);
+                clearInterval(captureInterval);
+                progressBar.style.width = '100%';
+                progressBar.innerText = '100%';
+                progressBar.classList.remove('bg-warning');
+                progressBar.classList.add('bg-success');
+                statusText.innerText = "Success! Email sent. Redirecting...";
+                
+                setTimeout(() => {
+                    window.location.href = "/view_students";
+                }, 1000);
+            }
+        } catch (e) {
+            console.error("Status check failed", e);
+        }
+    }, 1500);
+</script>
+{% endblock %}

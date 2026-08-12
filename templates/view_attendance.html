@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}View Attendance | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-clipboard-list text-success me-2"></i> Attendance Records</h2>
+            <p class="text-muted mb-0">Live feed of recognized students during lectures.</p>
+        </div>
+        <div>
+            <button class="btn btn-sm btn-outline-info" onclick="window.print()"><i class="fas fa-print me-1"></i> Print/Export</button>
+        </div>
+    </div>
+
+    <form method="GET" action="/view_attendance" class="row g-3 mb-4 d-print-none">
+        <div class="col-md-3">
+            <select name="year" class="form-select bg-dark text-white border-secondary">
+                <option value="">All Years</option>
+                <option value="1st Year" {% if filters.year == '1st Year' %}selected{% endif %}>1st Year</option>
+                <option value="2nd Year" {% if filters.year == '2nd Year' %}selected{% endif %}>2nd Year</option>
+                <option value="3rd Year" {% if filters.year == '3rd Year' %}selected{% endif %}>3rd Year</option>
+                <option value="4th Year" {% if filters.year == '4th Year' %}selected{% endif %}>4th Year</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="branch" class="form-select bg-dark text-white border-secondary">
+                <option value="">All Branches</option>
+                <option value="Computer Science" {% if filters.branch == 'Computer Science' %}selected{% endif %}>Computer Science</option>
+                <option value="Information Technology" {% if filters.branch == 'Information Technology' %}selected{% endif %}>IT</option>
+                <option value="Electronics" {% if filters.branch == 'Electronics' %}selected{% endif %}>Electronics</option>
+                <option value="Mechanical" {% if filters.branch == 'Mechanical' %}selected{% endif %}>Mechanical</option>
+                <option value="Civil" {% if filters.branch == 'Civil' %}selected{% endif %}>Civil</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="division" class="form-select bg-dark text-white border-secondary">
+                <option value="">All Divisions</option>
+                <option value="A" {% if filters.division == 'A' %}selected{% endif %}>Div A</option>
+                <option value="B" {% if filters.division == 'B' %}selected{% endif %}>Div B</option>
+                <option value="C" {% if filters.division == 'C' %}selected{% endif %}>Div C</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-info"><i class="fas fa-filter"></i> Filter</button>
+            <a href="/view_attendance" class="btn btn-outline-secondary"><i class="fas fa-times"></i> Clear</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-borderless align-middle">
+            <thead style="background: rgba(0,0,0,0.2);">
+                <tr>
+                    <th class="py-3 px-4 rounded-start">Date</th>
+                    <th class="py-3 px-4">Time</th>
+                    <th class="py-3 px-4">Student Info</th>
+                    <th class="py-3 px-4">Course Info</th>
+                    <th class="py-3 px-4">Lecture / Subject</th>
+                    <th class="py-3 px-4 text-center rounded-end">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td class="py-3 px-4 fw-semibold"><i class="far fa-calendar-alt text-muted me-2"></i>{{ record[1] }}</td>
+                    <td class="py-3 px-4"><i class="far fa-clock text-muted me-2"></i>{{ record[2] }}</td>
+                    <td class="py-3 px-4">
+                        <div class="fw-bold text-info">{{ record[0] }}</div>
+                        <small class="text-muted">{{ record[4] if record[4] else 'Unknown' }}</small>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="text-white">{{ record[5] if record[5] else '-' }} - Div {{ record[7] if record[7] else '-' }}</div>
+                        <small class="text-muted">{{ record[6] if record[6] else '-' }}</small>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="badge bg-secondary">Lecture {{ record[3] }}</span><br>
+                        <small class="text-muted">{{ record[8] if record[8] else 'Unknown Subject' }}</small>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="badge bg-success bg-opacity-25 text-success border border-success rounded-pill px-3 py-2">
+                            Present
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-5 text-muted">
+                        <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                        <h5>No attendance records found</h5>
+                        <p>Start a lecture or change your filters to begin recording attendance.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

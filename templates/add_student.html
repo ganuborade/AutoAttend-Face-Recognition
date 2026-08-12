@@ -1,0 +1,88 @@
+{% extends 'hod_base.html' if is_hod else 'base.html' %}
+
+{% block title %}Add Student | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 mt-4">
+        <div class="glass-card">
+            <div class="d-flex align-items-center border-bottom border-secondary pb-3 mb-4">
+                <div class="p-3 rounded-circle me-3" style="background: rgba(79, 172, 254, 0.2);">
+                    <i class="fas fa-user-plus fa-2x text-primary"></i>
+                </div>
+                <div>
+                    <h2 class="mb-0">Enroll New Student</h2>
+                    <p class="text-muted mb-0">Add details and capture biometric face data.</p>
+                </div>
+            </div>
+            
+            <form action="{% if is_hod %}/hod/teacher/{{ teacher_id }}/add_student{% else %}/add_student{% endif %}" method="POST">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">Full Name</label>
+                        <input type="text" name="name" class="form-control" placeholder="e.g. John Doe" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fw-bold">Roll / ID Number</label>
+                        <input type="text" name="roll" class="form-control" placeholder="e.g. 101" required>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fw-bold">Academic Year</label>
+                        <select name="year" class="form-select" required>
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fw-bold">Branch</label>
+                        <select name="branch" class="form-select" required>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Mechanical">Mechanical</option>
+                            <option value="Civil">Civil</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fw-bold">Division</label>
+                        <select name="division" class="form-select" required>
+                            <option value="A">Div A</option>
+                            <option value="B">Div B</option>
+                            <option value="C">Div C</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label text-muted fw-bold">Email Address</label>
+                        <input type="email" name="email" class="form-control" placeholder="johndoe@example.com" required>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle"></i> We will send attendance alerts to this email.
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="border-secondary my-4">
+                
+                <div class="bg-dark rounded p-4 text-center border border-secondary mb-4">
+                    <i class="fas fa-camera fa-2x text-muted mb-2"></i>
+                    <h5>Biometric Capture Process</h5>
+                    <p class="text-muted small mb-0">When you click 'Start Registration', a camera window will open. Position the student's face clearly. Press <strong>'s'</strong> to capture 30 images, or <strong>'q'</strong> to quit early. The AI model will automatically retrain after capture.</p>
+                </div>
+                
+                <div class="d-flex justify-content-end">
+                    <button type="reset" class="btn btn-outline-light me-2">Clear Form</button>
+                    <button type="submit" class="btn btn-primary px-4" style="background: linear-gradient(135deg, #4facfe, #00f2fe); border: none;">
+                        <i class="fas fa-camera me-2"></i> Start Registration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

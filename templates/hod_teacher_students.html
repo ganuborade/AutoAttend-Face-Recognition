@@ -1,0 +1,60 @@
+{% extends 'hod_base.html' %}
+
+{% block title %}Manage Students | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+    <div>
+        <h2 class="mb-0"><i class="fas fa-users text-info me-2"></i> {{ teacher_name }}'s Students</h2>
+        <p class="text-muted mb-0">View and manage the roster for this teacher.</p>
+    </div>
+    
+    <a href="/hod/teacher/{{ teacher_id }}/add_student" class="btn btn-outline-info rounded-pill">
+        <i class="fas fa-plus me-1"></i> Add Student
+    </a>
+</div>
+
+<div class="glass-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle table-borderless">
+            <thead style="background: rgba(0,0,0,0.2);">
+                <tr>
+                    <th class="py-3 px-4 rounded-start">Roll No</th>
+                    <th class="py-3">Name</th>
+                    <th class="py-3">Email</th>
+                    <th class="py-3">Year & Branch</th>
+                    <th class="py-3 text-end rounded-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td class="py-3 px-4 fw-bold text-info">{{ student[1] }}</td>
+                    <td class="py-3">{{ student[0] }}</td>
+                    <td class="py-3 text-muted">{{ student[2] }}</td>
+                    <td class="py-3"><span class="badge bg-secondary">{{ student[3] }}</span> {{ student[4] }} ({{ student[5] }})</td>
+                    <td class="py-3 text-end">
+                        <a href="/hod/edit_student/{{ student[1] }}?teacher_id={{ teacher_id }}" class="btn btn-sm btn-outline-warning rounded-circle me-1" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="/hod/teacher/{{ teacher_id }}/delete_student/{{ student[1] }}" method="POST" class="d-inline" onsubmit="return confirm('Delete student? This will remove all face data and attendance records.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i class="fas fa-user-slash fa-3x mb-3 opacity-50"></i>
+                        <h5>No students found.</h5>
+                        <p>This teacher has not added any students yet.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,444 @@
+{% extends 'base.html' %}
+
+{% block title %}Live Lecture {{ lecture_no }} | AutoAttend{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-10">
+
+        <div class="glass-card">
+
+            <!-- HEADER -->
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+
+                <div>
+                    <h2 class="mb-0 text-success">
+                        <span class="spinner-grow spinner-grow-sm text-danger me-2"
+                              role="status"></span>
+
+                        Live Lecture {{ lecture_no }}
+                    </h2>
+
+                    <p class="text-muted mb-0">
+                        Subject:
+                        <strong>{{ subject }}</strong>
+                        |
+                        Browser camera attendance
+                    </p>
+                </div>
+
+                <div>
+                    <a href="/dashboard"
+                       class="btn btn-danger fw-bold px-4"
+                       onclick="stopCamera()">
+
+                        <i class="fas fa-stop-circle me-2"></i>
+                        End Lecture
+
+                    </a>
+                </div>
+
+            </div>
+
+
+            <!-- CAMERA AREA -->
+            <div class="bg-dark rounded p-2 text-center"
+                 style="
+                    border: 2px solid rgba(0, 242, 254, 0.3);
+                    min-height: 480px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                 ">
+
+                <div style="width: 100%; max-width: 800px;">
+
+                    <!-- Browser Camera -->
+                    <video id="camera"
+                           autoplay
+                           playsinline
+                           muted
+                           style="
+                               width: 100%;
+                               max-width: 800px;
+                               border-radius: 8px;
+                               display: none;
+                           ">
+                    </video>
+
+                    <!-- Hidden canvas used to capture frames -->
+                    <canvas id="canvas"
+                            style="display: none;">
+                    </canvas>
+
+                    <!-- Camera not started message -->
+                    <div id="cameraPlaceholder"
+                         style="
+                            min-height: 450px;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            flex-direction: column;
+                         ">
+
+                        <i class="fas fa-camera fa-4x text-secondary mb-3"></i>
+
+                        <h4 class="text-secondary">
+                            Camera is not started
+                        </h4>
+
+                        <p class="text-muted">
+                            Click "Start Camera" to begin attendance.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- CAMERA CONTROLS -->
+            <div class="text-center mt-4">
+
+                <button id="startCameraBtn"
+                        class="btn btn-success fw-bold px-4 me-2"
+                        onclick="startCamera()">
+
+                    <i class="fas fa-camera me-2"></i>
+                    Start Camera
+
+                </button>
+
+
+                <button id="stopCameraBtn"
+                        class="btn btn-danger fw-bold px-4"
+                        onclick="stopCamera()"
+                        disabled>
+
+                    <i class="fas fa-stop me-2"></i>
+                    Stop Camera
+
+                </button>
+
+            </div>
+
+
+            <!-- STATUS -->
+            <div id="cameraStatus"
+                 class="alert alert-secondary mt-4 text-center">
+
+                <i class="fas fa-info-circle me-2"></i>
+
+                Camera is waiting to start.
+
+            </div>
+
+
+            <!-- INFORMATION -->
+            <div class="alert alert-info bg-info bg-opacity-10 border-info text-info mt-4 d-flex align-items-center">
+
+                <i class="fas fa-info-circle fa-2x me-3"></i>
+
+                <div>
+
+                    <strong>System Ready!</strong>
+
+                    Start the camera and allow browser camera permission.
+
+                    The system will automatically detect and recognize
+                    students and mark attendance in the MySQL database.
+
+                    Do not close this tab until the lecture is complete.
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+
+<script>
+let cameraStream = null;
+let recognitionTimer = null;
+let isSendingFrame = false;
+let stopped = false;
+
+const video = document.getElementById("camera");
+const canvas = document.getElementById("canvas");
+const placeholder = document.getElementById("cameraPlaceholder");
+const statusBox = document.getElementById("cameraStatus");
+const startButton = document.getElementById("startCameraBtn");
+const stopButton = document.getElementById("stopCameraBtn");
+
+/* ------------------------------------
+   STATUS HELPER
+------------------------------------ */
+function setStatus(message, type = "info", icon = "info-circle") {
+    statusBox.className = `alert alert-${type} mt-4 text-center`;
+    statusBox.innerHTML =
+        `<i class="fas fa-${icon} me-2"></i>${message}`;
+}
+
+/* ------------------------------------
+   START CAMERA
+------------------------------------ */
+async function startCamera() {
+    if (cameraStream) {
+        return;
+    }
+
+    stopped = false;
+
+    try {
+        setStatus("Requesting camera permission...", "info", "spinner");
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error(
+                "Camera API is not available. Use HTTPS or localhost."
+            );
+        }
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: "user"
+            },
+            audio: false
+        });
+
+        video.srcObject = cameraStream;
+        video.style.display = "block";
+        placeholder.style.display = "none";
+
+        startButton.disabled = true;
+        stopButton.disabled = false;
+
+        await video.play();
+
+        setStatus(
+            "Camera started. Looking for a face...",
+            "success",
+            "camera"
+        );
+
+        // Do not create multiple timers.
+        if (recognitionTimer !== null) {
+            clearInterval(recognitionTimer);
+        }
+
+        // 1 request every 700 ms is enough and avoids flooding Flask.
+        recognitionTimer = setInterval(sendFrameForRecognition, 700);
+
+    } catch (error) {
+        console.error("Camera error:", error);
+
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+        }
+
+        cameraStream = null;
+        video.srcObject = null;
+        video.style.display = "none";
+        placeholder.style.display = "flex";
+
+        startButton.disabled = false;
+        stopButton.disabled = true;
+
+        setStatus(
+            "Unable to access camera: " + error.message,
+            "danger",
+            "exclamation-triangle"
+        );
+    }
+}
+
+/* ------------------------------------
+   SEND CAMERA FRAME TO FLASK
+------------------------------------ */
+async function sendFrameForRecognition() {
+    // Prevent overlapping requests.
+    if (isSendingFrame || stopped || !cameraStream) {
+        return;
+    }
+
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        video.videoWidth === 0 ||
+        video.videoHeight === 0) {
+        return;
+    }
+
+    isSendingFrame = true;
+
+    try {
+        // Keep the recognition image reasonably small.
+        const maxWidth = 640;
+        const scale = Math.min(1, maxWidth / video.videoWidth);
+
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+
+        context.drawImage(
+            video,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        const blob = await new Promise(resolve => {
+            canvas.toBlob(resolve, "image/jpeg", 0.75);
+        });
+
+        if (!blob) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("frame", blob, "camera_frame.jpg");
+
+        const response = await fetch(
+            "{{ url_for('recognize_frame', lecture_no=lecture_no) }}",
+            {
+                method: "POST",
+                body: formData,
+                credentials: "same-origin",
+                cache: "no-store"
+            }
+        );
+
+        if (!response.ok) {
+            let errorMessage = `Server error (${response.status})`;
+
+            try {
+                const errorResult = await response.json();
+                if (errorResult.message) {
+                    errorMessage = errorResult.message;
+                }
+            } catch (_) {
+                // Keep default error message.
+            }
+
+            throw new Error(errorMessage);
+        }
+
+        const result = await response.json();
+
+        if (result.message) {
+            const message = String(result.message);
+
+            // Attendance successfully marked.
+            if (
+                result.success === true &&
+                /attendance marked/i.test(message)
+            ) {
+                setStatus(
+                    message,
+                    "success",
+                    "user-check"
+                );
+                return;
+            }
+
+            // Student already present.
+            if (/already marked/i.test(message)) {
+                setStatus(
+                    message,
+                    "success",
+                    "check-circle"
+                );
+                return;
+            }
+
+            // Unknown / non-matching face.
+            if (
+                /unknown|not recognized|not matched|not registered/i.test(message)
+            ) {
+                setStatus(
+                    message,
+                    "warning",
+                    "user-times"
+                );
+                return;
+            }
+
+            // No face.
+            if (/no face/i.test(message)) {
+                setStatus(
+                    message,
+                    "secondary",
+                    "camera"
+                );
+                return;
+            }
+
+            // Verification / normal status.
+            setStatus(
+                message,
+                "info",
+                "user-check"
+            );
+        }
+
+    } catch (error) {
+        console.error("Frame recognition error:", error);
+
+        // Don't show a noisy error every 700 ms.
+        if (cameraStream && !stopped) {
+            setStatus(
+                "Recognition connection error: " + error.message,
+                "danger",
+                "exclamation-triangle"
+            );
+        }
+
+    } finally {
+        isSendingFrame = false;
+    }
+}
+
+/* ------------------------------------
+   STOP CAMERA
+------------------------------------ */
+function stopCamera() {
+    stopped = true;
+
+    if (recognitionTimer !== null) {
+        clearInterval(recognitionTimer);
+        recognitionTimer = null;
+    }
+
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+
+    video.pause();
+    video.srcObject = null;
+    video.style.display = "none";
+    placeholder.style.display = "flex";
+
+    startButton.disabled = false;
+    stopButton.disabled = true;
+
+    setStatus(
+        "Camera stopped.",
+        "secondary",
+        "info-circle"
+    );
+}
+
+/* ------------------------------------
+   PAGE CLOSE / REFRESH
+------------------------------------ */
+window.addEventListener("beforeunload", stopCamera);
+</script>
+
+{% endblock %}

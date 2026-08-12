@@ -1,0 +1,117 @@
+{% extends 'hod_base.html' if is_hod_view else 'base.html' %}
+
+{% block title %}Analytics | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+    <div>
+        <h2 class="mb-0">
+            <i class="fas fa-chart-pie text-info me-2"></i> 
+            {% if is_hod_view %}Analytics for {{ teacher_name }}{% else %}Advanced Analytics{% endif %}
+        </h2>
+        <p class="text-muted mb-0">Deep dive into student attendance metrics and trends.</p>
+    </div>
+    <div>
+        <button class="btn btn-sm btn-outline-light"><i class="fas fa-download me-1"></i> Export Report</button>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Stat 1 -->
+    <div class="col-md-4">
+        <div class="glass-card text-center py-4 border-info" style="border-width: 2px;">
+            <i class="fas fa-users fa-2x text-info mb-2"></i>
+            <h1 class="display-4 fw-bold text-white mb-0">{{ avg_attendance }}%</h1>
+            <p class="text-muted text-uppercase small letter-spacing-1 mb-0">Average Attendance</p>
+        </div>
+    </div>
+    
+    <!-- Stat 2 -->
+    <div class="col-md-4">
+        <div class="glass-card text-center py-4 border-success" style="border-width: 2px;">
+            <i class="fas fa-calendar-check fa-2x text-success mb-2"></i>
+            <h1 class="display-4 fw-bold text-white mb-0">{{ total_lectures }}</h1>
+            <p class="text-muted text-uppercase small letter-spacing-1 mb-0">Lectures Conducted</p>
+        </div>
+    </div>
+
+    <!-- Stat 3 -->
+    <div class="col-md-4">
+        <div class="glass-card text-center py-4 border-danger" style="border-width: 2px;">
+            <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+            <h1 class="display-4 fw-bold text-white mb-0">{{ below_75 }}</h1>
+            <p class="text-muted text-uppercase small letter-spacing-1 mb-0">Students Below 75%</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="glass-card h-100">
+            <h4 class="mb-4">Monthly Attendance Trend</h4>
+            <div style="height: 300px;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="glass-card h-100">
+            <h4 class="mb-4">Overall Distribution</h4>
+            <div style="height: 300px; display: flex; justify-content: center;">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    Chart.defaults.color = '#cbd5e1';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.1)';
+
+    // Trend Chart
+    new Chart(document.getElementById('trendChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            datasets: [{
+                label: 'Present %',
+                data: [85, 88, 92, 95],
+                backgroundColor: 'rgba(79, 172, 254, 0.7)',
+                borderColor: '#4facfe',
+                borderWidth: 1,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Pie Chart
+    new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Present', 'Absent'],
+            datasets: [{
+                data: [{{ present }}, {{ absent }}],
+                backgroundColor: ['#00f2fe', '#ff416c'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            cutout: '70%'
+        }
+    });
+</script>
+{% endblock %}

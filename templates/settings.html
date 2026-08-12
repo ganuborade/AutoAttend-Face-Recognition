@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+    <div>
+        <h2 class="mb-0"><i class="fas fa-cog text-secondary me-2"></i> System Settings</h2>
+        <p class="text-muted mb-0">Configure your facial recognition preferences and system properties.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Camera Settings -->
+    <div class="col-md-6">
+        <div class="glass-card">
+            <h4 class="mb-4"><i class="fas fa-camera me-2 text-primary"></i> Camera Configuration</h4>
+            <form onsubmit="event.preventDefault(); alert('Settings saved successfully!');">
+                <div class="mb-3">
+                    <label class="form-label text-muted fw-bold">Camera Source</label>
+                    <select class="form-select">
+                        <option value="0" selected>Default Web Camera (0)</option>
+                        <option value="1">External USB Camera (1)</option>
+                        <option value="ip">IP Camera Stream</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted fw-bold">IP Camera URL</label>
+                    <input type="text" class="form-control" placeholder="http://192.168.1.100:8080/video" disabled>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="flipCamera" checked>
+                        <label class="form-check-label text-muted fw-bold" for="flipCamera">Flip Video Horizontally (Mirror Mode)</label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-outline-primary w-100">Save Camera Settings</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- AI Settings -->
+    <div class="col-md-6">
+        <div class="glass-card h-100">
+            <h4 class="mb-4"><i class="fas fa-brain me-2 text-success"></i> AI Engine Settings</h4>
+            
+            <div class="mb-4">
+                <label class="form-label text-muted fw-bold d-flex justify-content-between">
+                    <span>Face Match Threshold</span>
+                    <span class="text-info">80</span>
+                </label>
+                <input type="range" class="form-range" min="0" max="150" value="80" id="thresholdRange">
+                <small class="text-muted d-block mt-1">Lower values mean stricter matching (fewer false positives). Higher values mean looser matching.</small>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label text-muted fw-bold">Training Dataset Size</label>
+                <select class="form-select">
+                    <option value="10">10 images per student</option>
+                    <option value="30" selected>30 images per student (Recommended)</option>
+                    <option value="50">50 images per student (Slower training)</option>
+                </select>
+            </div>
+            
+            <form action="/retrain_model" method="POST">
+                <div class="alert alert-warning bg-warning bg-opacity-10 border-warning text-warning d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                    <div>
+                        <strong>Warning!</strong> Changing AI parameters requires retraining the entire model.
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-outline-success w-100 mt-2">
+                    <i class="fas fa-sync-alt me-2"></i> Force Model Retrain
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Support | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+    <div>
+        <h2 class="mb-0"><i class="fas fa-headset text-warning me-2"></i> Help & Support</h2>
+        <p class="text-muted mb-0">Get assistance and read documentation for the AutoAttend system.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="glass-card">
+            <h4 class="mb-4 text-white">Frequently Asked Questions</h4>
+            
+            <div class="accordion" id="faqAccordion">
+                <!-- FAQ 1 -->
+                <div class="accordion-item bg-transparent border-secondary mb-3 rounded" style="border: 1px solid rgba(255,255,255,0.1);">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent text-white" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                            Why is the system not recognizing a specific student?
+                        </button>
+                    </h2>
+                    <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted">
+                            Ensure that the student was enrolled with good lighting. If the problem persists, delete the student from the 'View Students' page and re-enroll them with 30 high-quality images. The AI model will automatically retrain.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 2 -->
+                <div class="accordion-item bg-transparent border-secondary mb-3 rounded" style="border: 1px solid rgba(255,255,255,0.1);">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent text-white" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                            How do I export the attendance records?
+                        </button>
+                    </h2>
+                    <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted">
+                            Navigate to the 'View Attendance' page. At the top right, there is a 'Print/Export' button. Clicking this will allow you to save the current view as a PDF or print it directly.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 3 -->
+                <div class="accordion-item bg-transparent border-secondary mb-3 rounded" style="border: 1px solid rgba(255,255,255,0.1);">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-transparent text-white" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                            Emails are not sending, what should I do?
+                        </button>
+                    </h2>
+                    <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted">
+                            If emails are failing, check your internet connection. Additionally, ensure that the SMTP credentials in the backend are correct and that Google App Passwords are being used instead of standard account passwords.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="glass-card h-100 text-center py-5">
+            <div class="d-inline-block p-4 rounded-circle mb-4" style="background: rgba(255, 193, 7, 0.1);">
+                <i class="fas fa-envelope-open-text fa-3x text-warning"></i>
+            </div>
+            <h4 class="text-white">Still need help?</h4>
+            <p class="text-muted mb-4">Our engineering team is available to assist you with any technical difficulties.</p>
+            <a href="mailto:attendance.project2026@gmail.com" class="btn btn-warning fw-bold px-4">Contact IT Support</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

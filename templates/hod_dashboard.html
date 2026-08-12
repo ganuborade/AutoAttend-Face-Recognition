@@ -1,0 +1,63 @@
+{% extends 'hod_base.html' %}
+
+{% block title %}HOD Dashboard | AutoAttend{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5">
+    <div>
+        <h1 class="fw-bold mb-1">Head of Department Portal</h1>
+        <p class="text-muted mb-0">
+            <i class="fas fa-university me-1 text-danger"></i> {{ college }} | 
+            <i class="fas fa-graduation-cap me-1 text-warning"></i> {{ university }}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="glass-card">
+            <h4 class="mb-4">Registered Teachers</h4>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Total Students</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for teacher in teachers %}
+                        <tr>
+                            <td>{{ teacher[0] }}</td>
+                            <td><i class="fas fa-chalkboard-teacher text-danger me-2"></i> {{ teacher[1] }}</td>
+                            <td>@{{ teacher[2] }}</td>
+                            <td><span class="badge bg-danger rounded-pill px-3">{{ teacher[3] }}</span></td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a href="/hod/teacher/{{ teacher[0] }}" class="btn btn-sm btn-outline-danger rounded-pill">
+                                        <i class="fas fa-chart-line me-1"></i> Analytics
+                                    </a>
+                                    <a href="/hod/teacher/{{ teacher[0] }}/students" class="btn btn-sm btn-outline-info rounded-pill">
+                                        <i class="fas fa-users me-1"></i> Students
+                                    </a>
+                                    <a href="/hod/teacher/{{ teacher[0] }}/settings" class="btn btn-sm btn-outline-warning rounded-pill">
+                                        <i class="fas fa-cog me-1"></i> Settings
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No teachers registered yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
