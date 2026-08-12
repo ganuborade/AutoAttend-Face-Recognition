@@ -10,6 +10,7 @@ import smtplib
 from email.mime.text import MIMEText
 import pickle
 from train import train_model
+train_model()
 from database import db_manager
 import threading
 from functools import wraps
