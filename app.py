@@ -35,7 +35,7 @@ capture_status = {}
 
 # Recognition settings/state. LBPH returns a distance: LOWER = BETTER MATCH.
 # These values can be overridden with environment variables.
-RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "50"))
+RECOGNITION_THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "65"))
 REQUIRED_MATCH_FRAMES = int(os.getenv("REQUIRED_MATCH_FRAMES", "5"))
 recognition_state = {}
 
@@ -142,16 +142,30 @@ def login_required(f):
     return decorated_function
 
 def get_smtp_connection(timeout=5):
-    """Establish connection to SMTP server with configurable timeout."""
+    """Establish connection to SMTP server with configurable timeout (tries Port 587 STARTTLS then Port 465 SSL fallback)."""
     sender_email = os.getenv("SENDER_EMAIL")
     sender_password = os.getenv("SENDER_PASSWORD")
     if not sender_email or not sender_password:
         raise ValueError("SENDER_EMAIL or SENDER_PASSWORD environment variables are not set.")
 
-    server = smtplib.SMTP('smtp.gmail.com', 587, timeout=timeout)
-    server.starttls()
-    server.login(sender_email, sender_password)
-    return server, sender_email
+    e587_err = None
+    # Try Port 587 (TLS) first
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=timeout)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        return server, sender_email
+    except Exception as e587:
+        e587_err = e587
+        print(f"[SMTP] Port 587 failed ({e587}). Trying Port 465 SSL fallback...")
+
+    # Fallback to Port 465 (SSL) if Port 587 is blocked by host
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=timeout)
+        server.login(sender_email, sender_password)
+        return server, sender_email
+    except Exception as e465:
+        raise RuntimeError(f"SMTP Port 587 failed ({e587_err}) and Port 465 failed ({e465}). Your cloud host is blocking SMTP traffic.")
 
 
 def send_email_message(to_email, subject, body, timeout=5):
@@ -547,7 +561,9 @@ def gen_lecture_frames(lecture_no, teacher_id, subject, year, branch, division):
                 if face.size == 0:
                     continue
 
-                person_id, distance = recognizer.predict(face)
+                face_proc = cv2.resize(face, (200, 200))
+                face_proc = cv2.equalizeHist(face_proc)
+                person_id, distance = recognizer.predict(face_proc)
                 roll = id_to_label.get(person_id, "Unknown") if distance < RECOGNITION_THRESHOLD else "Unknown"
                 student_check = verify_student_for_class(roll, teacher_id, year, branch, division) if roll != "Unknown" else None
 
@@ -639,7 +655,9 @@ def recognize_frame(lecture_no):
         if face.size == 0:
             return {"success": True, "recognized": False, "message": "Invalid face detected."}
 
-        person_id, distance = recognizer.predict(face)
+        face_proc = cv2.resize(face, (200, 200))
+        face_proc = cv2.equalizeHist(face_proc)
+        person_id, distance = recognizer.predict(face_proc)
         print(f"Prediction: ID={person_id}, LBPH distance={distance:.2f}, threshold={RECOGNITION_THRESHOLD}")
 
         # Lower LBPH distance is a better match. Never accept a prediction above the threshold.
