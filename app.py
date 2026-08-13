@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, Response, session, flash
 import cv2
 import os
+import json
+import urllib.request
 from dotenv import load_dotenv
 load_dotenv()
 import numpy as np
@@ -168,8 +170,49 @@ def get_smtp_connection(timeout=5):
         raise RuntimeError(f"SMTP Port 587 failed ({e587_err}) and Port 465 failed ({e465}). Your cloud host is blocking SMTP traffic.")
 
 
+def send_email_via_resend(api_key, to_email, subject, body):
+    """Send email over HTTPS using Resend API (Port 443, never blocked by cloud hosts)."""
+    url = "https://api.resend.com/emails"
+    sender_email = os.getenv("SENDER_EMAIL") or "AutoAttend <onboarding@resend.dev>"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "from": sender_email,
+        "to": [to_email],
+        "subject": subject,
+        "text": body
+    }
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status in (200, 201):
+                print(f"[RESEND API] Email successfully sent to {to_email}")
+                return True, "Email sent via Resend API"
+            else:
+                return False, f"Resend API returned status code {response.status}"
+    except Exception as e:
+        print(f"[RESEND API] Failed to send email via Resend: {e}")
+        return False, str(e)
+
+
 def send_email_message(to_email, subject, body, timeout=5):
-    """Utility helper to send a single email safely with error catching."""
+    """Utility helper to send a single email safely with 3-tier fallback (Resend API -> SMTP 587 -> SSL 465)."""
+    # Tier 1: Resend HTTP API (if RESEND_API_KEY is configured in environment)
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        success, msg = send_email_via_resend(resend_key, to_email, subject, body)
+        if success:
+            return True, msg
+        print(f"[EMAIL ENGINE] Resend API failed ({msg}), falling back to SMTP...")
+
+    # Tier 2 & 3: Gmail SMTP (Port 587 STARTTLS -> Port 465 SSL fallback)
     try:
         server, sender_email = get_smtp_connection(timeout=timeout)
         msg = MIMEText(body)
@@ -178,7 +221,7 @@ def send_email_message(to_email, subject, body, timeout=5):
         msg['To'] = to_email
         server.sendmail(sender_email, to_email, msg.as_string())
         server.quit()
-        return True, "Email sent successfully."
+        return True, "Email sent successfully via SMTP."
     except Exception as e:
         print(f"Email error for {to_email}: {e}")
         return False, str(e)
