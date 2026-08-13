@@ -5,10 +5,33 @@ import pickle
 
 
 def train_model(
-    data_dir="static/images",
-    model_save_path="trainer.yml",
-    label_map_path="label_map.pkl"
+    data_dir=None,
+    model_save_path=None,
+    label_map_path=None
 ):
+
+    BASE_DIR = os.path.dirname(
+        os.path.abspath(__file__)
+    )
+
+    if data_dir is None:
+        data_dir = os.path.join(
+            BASE_DIR,
+            "static",
+            "images"
+        )
+
+    if model_save_path is None:
+        model_save_path = os.path.join(
+            BASE_DIR,
+            "trainer.yml"
+        )
+
+    if label_map_path is None:
+        label_map_path = os.path.join(
+            BASE_DIR,
+            "label_map.pkl"
+        )
     print("\n========================================")
     print("       STARTING MODEL TRAINING")
     print("========================================")

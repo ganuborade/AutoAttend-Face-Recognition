@@ -19,6 +19,18 @@ import random
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+STATIC_IMAGES_DIR = os.path.join(
+    BASE_DIR,
+    "static",
+    "images"
+)
+
+os.makedirs(
+    STATIC_IMAGES_DIR,
+    exist_ok=True
+)
 
 # Global status tracker for biometrics capture
 capture_status = {}
@@ -111,6 +123,9 @@ def send_welcome_email(email, name, role):
         print(f"Failed to send welcome email to {email}: {e}")
 
 # ---------------- LOGIN & REGISTRATION ----------------
+@app.route('/health')
+def health():
+    return "OK", 200
 @app.route('/')
 def home():
     if 'teacher_id' in session:
