@@ -148,14 +148,16 @@ def get_smtp_connection(timeout=5):
     sender_email = os.getenv("SENDER_EMAIL")
     sender_password = os.getenv("SENDER_PASSWORD")
     if not sender_email or not sender_password:
-        raise ValueError("SENDER_EMAIL or SENDER_PASSWORD environment variables are not set.")
+        raise ValueError("SENDER_EMAIL or SENDER_PASSWORD environment variables are not set in .env")
+
+    clean_password = sender_password.strip()
 
     e587_err = None
     # Try Port 587 (TLS) first
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587, timeout=timeout)
         server.starttls()
-        server.login(sender_email, sender_password)
+        server.login(sender_email, clean_password)
         return server, sender_email
     except Exception as e587:
         e587_err = e587
@@ -164,10 +166,10 @@ def get_smtp_connection(timeout=5):
     # Fallback to Port 465 (SSL) if Port 587 is blocked by host
     try:
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=timeout)
-        server.login(sender_email, sender_password)
+        server.login(sender_email, clean_password)
         return server, sender_email
     except Exception as e465:
-        raise RuntimeError(f"SMTP Port 587 failed ({e587_err}) and Port 465 failed ({e465}). Your cloud host is blocking SMTP traffic.")
+        raise RuntimeError(f"SMTP Port 587 failed ({e587_err}) and Port 465 failed ({e465}). Network/Host is blocking SMTP traffic.")
 
 
 def send_email_via_resend(api_key, to_email, subject, body):
@@ -175,7 +177,7 @@ def send_email_via_resend(api_key, to_email, subject, body):
     url = "https://api.resend.com/emails"
     sender_email = os.getenv("RESEND_FROM_EMAIL", "AutoAttend <onboarding@resend.dev>")
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {api_key.strip()}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -198,9 +200,14 @@ def send_email_via_resend(api_key, to_email, subject, body):
             else:
                 return False, f"Resend API returned status code {response.status}"
     except urllib.error.HTTPError as e:
-        err_body = e.read().decode('utf-8')
-        print(f"[RESEND API] HTTP Error {e.code}: {err_body}")
-        return False, f"Resend API Error {e.code}: {err_body}"
+        try:
+            err_body = e.read().decode('utf-8')
+            err_data = json.loads(err_body)
+            msg = err_data.get('message', err_body)
+        except Exception:
+            msg = str(e)
+        print(f"[RESEND API] HTTP Error {e.code}: {msg}")
+        return False, f"Resend API Error {e.code}: {msg}"
     except Exception as e:
         print(f"[RESEND API] Failed to send email via Resend: {e}")
         return False, str(e)
@@ -208,12 +215,17 @@ def send_email_via_resend(api_key, to_email, subject, body):
 
 def send_email_message(to_email, subject, body, timeout=5):
     """Utility helper to send a single email safely with 3-tier fallback (Resend API -> SMTP 587 -> SSL 465)."""
+    if not to_email or not isinstance(to_email, str) or '@' not in to_email:
+        return False, f"Invalid or missing recipient email address: '{to_email}'"
+
+    resend_err = None
     # Tier 1: Resend HTTP API (if RESEND_API_KEY is configured in environment)
     resend_key = os.getenv("RESEND_API_KEY")
-    if resend_key:
+    if resend_key and resend_key.strip():
         success, msg = send_email_via_resend(resend_key, to_email, subject, body)
         if success:
             return True, msg
+        resend_err = msg
         print(f"[EMAIL ENGINE] Resend API failed ({msg}), falling back to SMTP...")
 
     # Tier 2 & 3: Gmail SMTP (Port 587 STARTTLS -> Port 465 SSL fallback)
@@ -227,8 +239,11 @@ def send_email_message(to_email, subject, body, timeout=5):
         server.quit()
         return True, "Email sent successfully via SMTP."
     except Exception as e:
-        print(f"Email error for {to_email}: {e}")
-        return False, str(e)
+        smtp_err = str(e)
+        print(f"Email error for {to_email}: {smtp_err}")
+        if resend_err:
+            return False, f"Resend: {resend_err} | SMTP: {smtp_err}"
+        return False, f"SMTP error: {smtp_err}"
 
 
 def send_welcome_email(email, name, role):
@@ -888,7 +903,8 @@ def send_email():
         lecture_no = request.form.get('lecture_no')
         
         if not selected_rolls:
-            return "No students selected!"
+            flash("No students selected for alert emails!", "warning")
+            return redirect(url_for('send_email', lecture_no=lecture_no))
             
         placeholders = ', '.join(['%s'] * len(selected_rolls))
         query = f"SELECT roll, email FROM students WHERE roll IN ({placeholders}) AND teacher_id=%s"
@@ -896,18 +912,29 @@ def send_email():
         students_to_email = db_manager.fetch_all(query, params)
 
         sent_count = 0
+        error_details = []
         for roll, email in students_to_email:
+            if not email or not str(email).strip():
+                error_details.append(f"Roll {roll}: No email address on record")
+                continue
+
             subject = "Attendance Alert - Absence Notification"
             body = f"Dear Student ({roll}),\n\nYou were marked absent for Lecture {lecture_no}. Please ensure you attend the next classes.\n\nRegards,\nAutoAttend Attendance System"
 
-            success, msg = send_email_message(email, subject, body, timeout=5)
+            success, msg = send_email_message(str(email).strip(), subject, body, timeout=5)
             if success:
                 sent_count += 1
+            else:
+                error_details.append(f"Roll {roll} ({email}): {msg}")
 
         if sent_count > 0:
-            flash(f"Successfully sent alert emails to {sent_count} students!", "success")
+            if error_details:
+                flash(f"Successfully sent alert emails to {sent_count} student(s). Warning for remaining: {'; '.join(error_details)}", "warning")
+            else:
+                flash(f"Successfully sent alert emails to {sent_count} student(s)!", "success")
         else:
-            flash("Failed to send alert emails. Please configure RESEND_API_KEY or check network/SMTP settings.", "danger")
+            err_summary = "; ".join(error_details) if error_details else "No valid student emails found for selected roll numbers."
+            flash(f"Failed to send alert emails: {err_summary}", "danger")
         return redirect(url_for('send_email', lecture_no=lecture_no))
 
 # ---------------- NEW PROFESSIONAL ROUTES ----------------
