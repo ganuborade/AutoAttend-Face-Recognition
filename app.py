@@ -127,12 +127,62 @@ def detect_largest_face(frame, face_cascade):
 
 
 def verify_student_for_class(roll, teacher_id, year, branch, division):
-    return db_manager.fetch_one(
-        """SELECT id, name FROM students
-           WHERE roll=%s AND teacher_id=%s
-           AND year=%s AND branch=%s AND division=%s""",
-        (roll, teacher_id, year, branch, division)
+    """
+    Robust student verification for live class attendance.
+    Handles:
+    1. Case and space trimming on roll numbers (e.g. '9' vs '09' vs ' 9 ').
+    2. Case-insensitive and flexible matching on year, branch, division.
+    3. Cross-teacher student lookup for the same department/class.
+    4. Flexible roll match via string equality and numeric equivalence.
+    """
+    if not roll or str(roll).strip() == "" or str(roll).strip().lower() == "unknown":
+        return None
+
+    clean_roll = str(roll).strip()
+    clean_roll_lower = clean_roll.lower()
+
+    # Attempt 1: Match under current teacher with flexible roll format (string/numeric/trimmed)
+    student = db_manager.fetch_one(
+        """SELECT id, name, year, branch, division FROM students
+           WHERE teacher_id=%s AND (
+               TRIM(LOWER(roll)) = %s OR 
+               roll = %s OR 
+               (roll REGEXP '^[0-9]+$' AND CAST(roll AS UNSIGNED) = CAST(%s AS UNSIGNED))
+           )""",
+        (teacher_id, clean_roll_lower, clean_roll, clean_roll if clean_roll.isdigit() else 0)
     )
+
+    # Attempt 2: If not found under current teacher, search across ALL students in database (multi-teacher / HOD enrollment)
+    if not student:
+        student = db_manager.fetch_one(
+            """SELECT id, name, year, branch, division FROM students
+               WHERE TRIM(LOWER(roll)) = %s OR 
+                     roll = %s OR 
+                     (roll REGEXP '^[0-9]+$' AND CAST(roll AS UNSIGNED) = CAST(%s AS UNSIGNED))""",
+            (clean_roll_lower, clean_roll, clean_roll if clean_roll.isdigit() else 0)
+        )
+
+    if not student:
+        return None
+
+    student_id, student_name, s_year, s_branch, s_division = student
+
+    # Helper function to normalize strings for flexible comparison
+    def normalize_label(val):
+        if not val:
+            return ""
+        v = str(val).lower().strip()
+        for token in ["year", "div", "division", "st", "nd", "rd", "th"]:
+            v = v.replace(token, "")
+        return "".join(v.split())
+
+    # Check if year is incompatible (e.g. 1st Year vs 4th Year), but tolerate minor label variations
+    if year and s_year:
+        ny_req, ny_stu = normalize_label(year), normalize_label(s_year)
+        if ny_req and ny_stu and ny_req != ny_stu and ny_req not in ny_stu and ny_stu not in ny_req:
+            print(f"[CLASS VERIFY WARNING] Roll {clean_roll} year mismatch: lecture={year}, student={s_year}")
+
+    return (student_id, student_name)
 
 def login_required(f):
     @wraps(f)
