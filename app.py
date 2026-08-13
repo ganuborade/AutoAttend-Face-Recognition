@@ -806,11 +806,15 @@ def analytics():
     teacher_id = session['teacher_id']
     try:
         total_students = db_manager.fetch_one("SELECT COUNT(*) FROM students WHERE teacher_id=%s", (teacher_id,))[0]
-        total_lectures = db_manager.fetch_one("SELECT COUNT(DISTINCT lecture_no) FROM attendance WHERE teacher_id=%s", (teacher_id,))[0]
-        total_attendance = db_manager.fetch_one("SELECT COUNT(*) FROM attendance WHERE teacher_id=%s", (teacher_id,))[0]
+        total_lectures = db_manager.fetch_one("SELECT COUNT(DISTINCT date, lecture_no, subject) FROM attendance WHERE teacher_id=%s", (teacher_id,))[0]
+        total_attendance = db_manager.fetch_one(
+            """SELECT COUNT(*) FROM attendance 
+               WHERE teacher_id=%s AND roll IN (SELECT roll FROM students WHERE teacher_id=%s)""",
+            (teacher_id, teacher_id)
+        )[0]
         
         if total_students > 0 and total_lectures > 0:
-            avg_attendance = int((total_attendance / (total_students * total_lectures)) * 100)
+            avg_attendance = min(100, int((total_attendance / (total_students * total_lectures)) * 100))
         else:
             avg_attendance = 0
             
@@ -987,11 +991,15 @@ def hod_teacher_view(teacher_id):
         
     try:
         total_students = db_manager.fetch_one("SELECT COUNT(*) FROM students WHERE teacher_id=%s", (teacher_id,))[0]
-        total_lectures = db_manager.fetch_one("SELECT COUNT(DISTINCT lecture_no) FROM attendance WHERE teacher_id=%s", (teacher_id,))[0]
-        total_attendance = db_manager.fetch_one("SELECT COUNT(*) FROM attendance WHERE teacher_id=%s", (teacher_id,))[0]
+        total_lectures = db_manager.fetch_one("SELECT COUNT(DISTINCT date, lecture_no, subject) FROM attendance WHERE teacher_id=%s", (teacher_id,))[0]
+        total_attendance = db_manager.fetch_one(
+            """SELECT COUNT(*) FROM attendance 
+               WHERE teacher_id=%s AND roll IN (SELECT roll FROM students WHERE teacher_id=%s)""",
+            (teacher_id, teacher_id)
+        )[0]
         
         if total_students > 0 and total_lectures > 0:
-            avg_attendance = int((total_attendance / (total_students * total_lectures)) * 100)
+            avg_attendance = min(100, int((total_attendance / (total_students * total_lectures)) * 100))
         else:
             avg_attendance = 0
             
