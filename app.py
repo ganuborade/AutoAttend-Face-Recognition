@@ -334,7 +334,10 @@ def capture_frame(roll):
         if frame is None:
             return {"success": False, "message": "Could not decode camera frame."}, 400
 
-        _, _, face_cascade = load_face_model()
+        cascade_path = project_path("haarcascade_frontalface_default.xml")
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+        if face_cascade.empty():
+            raise RuntimeError("Unable to load Haar Cascade.")
         gray, face_rect = detect_largest_face(frame, face_cascade)
         folder_path = os.path.join(project_path('static'), 'images', roll)
         os.makedirs(folder_path, exist_ok=True)

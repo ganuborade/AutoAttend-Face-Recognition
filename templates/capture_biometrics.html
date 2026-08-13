@@ -9,17 +9,25 @@
             <h2 class="mb-3 text-primary"><i class="fas fa-camera-retro me-2"></i> Capturing Face Data</h2>
             <p class="text-muted mb-4">Please look directly into the camera. We are capturing 30 frames for the AI model.</p>
             
-            <div class="bg-dark rounded p-2 mb-4 mx-auto" style="border: 2px solid rgba(79, 172, 254, 0.5); width: 100%; max-width: 640px; min-height: 480px; position: relative;">
-                <img src="/video_feed/capture/{{ roll }}?name={{ name }}&email={{ email }}" alt="Capture Feed" style="width: 100%; border-radius: 8px;">
+            <div class="bg-dark rounded p-2 mb-4 mx-auto" style="border: 2px solid rgba(79, 172, 254, 0.5); width: 100%; max-width: 640px; min-height: 480px; position: relative; display: flex; justify-content: center; align-items: center;">
+                <!-- Browser Video Stream -->
+                <video id="camera" autoplay playsinline muted style="width: 100%; border-radius: 8px; display: none;"></video>
+                
+                <!-- Hidden Canvas -->
+                <canvas id="canvas" style="display: none;"></canvas>
+                
+                <!-- Camera Placeholder -->
+                <div id="cameraPlaceholder" style="min-height: 400px; display: flex; justify-content: center; align-items: center; flex-direction: column;">
+                    <i class="fas fa-camera fa-4x text-secondary mb-3"></i>
+                    <h4 class="text-secondary">Requesting Camera Access...</h4>
+                    <p class="text-muted">Please allow browser camera permission to capture face data.</p>
+                </div>
                 
                 <!-- Overlay for processing text -->
                 <div id="processingOverlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); border-radius: 8px; justify-content: center; align-items: center; flex-direction: column;">
                     <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
                     <h4 class="text-white">Training AI Model...</h4>
-                    <p class="text-muted">Please wait. Sending welcome email...</p>
-                    <a href="{% if is_hod %}/hod/teacher/{{ teacher_id }}/students{% else %}/view_students{% endif %}" class="btn btn-primary d-none mt-3" id="doneBtn">
-                        <i class="fas fa-check me-2"></i> Done, View Students
-                    </a>
+                    <p class="text-muted">Please wait. Training the face recognition model and sending welcome email...</p>
                 </div>
             </div>
             
@@ -35,55 +43,201 @@
 
 {% block scripts %}
 <script>
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const placeholder = document.getElementById('cameraPlaceholder');
     const progressBar = document.getElementById('captureProgress');
     const statusText = document.getElementById('statusText');
     const overlay = document.getElementById('processingOverlay');
+    
     const roll = "{{ roll }}";
+    const studentName = "{{ name }}";
+    const studentEmail = "{{ email }}";
+    const redirectUrl = "{% if is_hod %}/hod/teacher/{{ teacher_id }}/students{% else %}/view_students{% endif %}";
     
-    let progress = 0;
+    let cameraStream = null;
+    let captureTimer = null;
+    let isSendingFrame = false;
+    let isCompleted = false;
     
-    // Animate progress bar slowly while capturing
-    const captureInterval = setInterval(() => {
-        if (progress < 70) {
-            progress += 2;
-            progressBar.style.width = progress + '%';
-            progressBar.innerText = progress + '%';
-            statusText.innerText = "Analyzing facial features and capturing data...";
-        }
-    }, 200);
-
-    // Poll the backend for the actual status
-    const statusInterval = setInterval(async () => {
+    // Automatically start camera on load
+    async function startCamera() {
         try {
-            const response = await fetch('/check_status/' + roll);
-            const data = await response.json();
-            
-            if (data.status === 'processing') {
-                clearInterval(captureInterval);
-                progress = 90;
-                progressBar.style.width = progress + '%';
-                progressBar.innerText = progress + '%';
-                progressBar.classList.remove('bg-primary');
-                progressBar.classList.add('bg-warning');
-                statusText.innerText = "Processing complete. Training LBPH model and sending email...";
-                overlay.style.display = 'flex';
-            } 
-            else if (data.status === 'done') {
-                clearInterval(statusInterval);
-                clearInterval(captureInterval);
-                progressBar.style.width = '100%';
-                progressBar.innerText = '100%';
-                progressBar.classList.remove('bg-warning');
-                progressBar.classList.add('bg-success');
-                statusText.innerText = "Success! Email sent. Redirecting...";
-                
-                setTimeout(() => {
-                    window.location.href = "/view_students";
-                }, 1000);
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Camera API is not supported by your browser. Use HTTPS or localhost.");
             }
-        } catch (e) {
-            console.error("Status check failed", e);
+            
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: "user"
+                },
+                audio: false
+            });
+            
+            video.srcObject = cameraStream;
+            video.style.display = "block";
+            placeholder.style.display = "none";
+            statusText.innerText = "Camera connected. Initializing capture...";
+            
+            await video.play();
+            
+            // Start capturing frames every 600ms
+            captureTimer = setInterval(sendFrameForCapture, 600);
+        } catch (error) {
+            console.error("Camera access error:", error);
+            statusText.className = "text-danger fw-bold";
+            statusText.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i> Camera error: ${error.message}`;
+            placeholder.innerHTML = `
+                <i class="fas fa-exclamation-triangle fa-4x text-danger mb-3"></i>
+                <h4 class="text-danger">Camera Access Denied</h4>
+                <p class="text-muted">Please allow camera access in your browser settings and refresh the page.</p>
+            `;
         }
-    }, 1500);
+    }
+    
+    async function sendFrameForCapture() {
+        if (isSendingFrame || isCompleted || !cameraStream) {
+            return;
+        }
+        
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+            video.videoWidth === 0 ||
+            video.videoHeight === 0) {
+            return;
+        }
+        
+        isSendingFrame = true;
+        
+        try {
+            // Match backend expectations of image sizes
+            const maxWidth = 640;
+            const scale = Math.min(1, maxWidth / video.videoWidth);
+            
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const blob = await new Promise(resolve => {
+                canvas.toBlob(resolve, 'image/jpeg', 0.85);
+            });
+            
+            if (!blob) {
+                isSendingFrame = false;
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('frame', blob, 'capture.jpg');
+            formData.append('name', studentName);
+            formData.append('email', studentEmail);
+            
+            const response = await fetch(`/capture_frame/${roll}`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned error status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const count = result.count || 0;
+                const total = result.total || 30;
+                const pct = Math.round((count / total) * 100);
+                
+                progressBar.style.width = pct + '%';
+                progressBar.innerText = pct + '%';
+                
+                if (result.message) {
+                    statusText.innerText = result.message;
+                }
+                
+                if (result.completed || count >= total) {
+                    handleCaptureCompleted();
+                }
+            } else {
+                if (result.message) {
+                    statusText.innerText = result.message;
+                }
+            }
+        } catch (error) {
+            console.error("Frame capture upload error:", error);
+            statusText.className = "text-danger fw-bold";
+            statusText.innerText = "Upload error: " + error.message;
+        } finally {
+            isSendingFrame = false;
+        }
+    }
+    
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+        }
+        if (captureTimer) {
+            clearInterval(captureTimer);
+            captureTimer = null;
+        }
+        video.srcObject = null;
+    }
+    
+    function handleCaptureCompleted() {
+        isCompleted = true;
+        stopCamera();
+        
+        progressBar.style.width = '100%';
+        progressBar.innerText = '100%';
+        progressBar.classList.remove('bg-primary');
+        progressBar.classList.add('bg-success');
+        
+        // Show training/processing overlay
+        overlay.style.display = 'flex';
+        statusText.className = "text-warning fw-bold";
+        statusText.innerText = "Training face models. Please wait...";
+        
+        // Poll for processing status
+        const pollInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/check_status/${roll}`);
+                const data = await response.json();
+                
+                if (data.status === 'done') {
+                    clearInterval(pollInterval);
+                    statusText.className = "text-success fw-bold";
+                    statusText.innerText = "Enrollment successful! Redirecting...";
+                    
+                    setTimeout(() => {
+                        window.location.href = redirectUrl;
+                    }, 1500);
+                } else if (data.status === 'error') {
+                    clearInterval(pollInterval);
+                    statusText.className = "text-danger fw-bold";
+                    statusText.innerText = "Model training failed. Please try again.";
+                    overlay.innerHTML = `
+                        <i class="fas fa-times-circle fa-4x text-danger mb-3"></i>
+                        <h4 class="text-danger">Training Failed</h4>
+                        <p class="text-muted">An error occurred during training.</p>
+                        <a href="/view_students" class="btn btn-primary mt-3">Back to Students</a>
+                    `;
+                }
+            } catch (e) {
+                console.error("Error polling status:", e);
+            }
+        }, 1500);
+    }
+    
+    // Initialize camera on page load
+    window.addEventListener('DOMContentLoaded', startCamera);
+    
+    // Ensure camera is stopped when leaving page
+    window.addEventListener('beforeunload', stopCamera);
 </script>
 {% endblock %}
