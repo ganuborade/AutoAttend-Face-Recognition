@@ -173,7 +173,7 @@ def get_smtp_connection(timeout=5):
 def send_email_via_resend(api_key, to_email, subject, body):
     """Send email over HTTPS using Resend API (Port 443, never blocked by cloud hosts)."""
     url = "https://api.resend.com/emails"
-    sender_email = os.getenv("SENDER_EMAIL") or "AutoAttend <onboarding@resend.dev>"
+    sender_email = os.getenv("RESEND_FROM_EMAIL", "AutoAttend <onboarding@resend.dev>")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -197,6 +197,10 @@ def send_email_via_resend(api_key, to_email, subject, body):
                 return True, "Email sent via Resend API"
             else:
                 return False, f"Resend API returned status code {response.status}"
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode('utf-8')
+        print(f"[RESEND API] HTTP Error {e.code}: {err_body}")
+        return False, f"Resend API Error {e.code}: {err_body}"
     except Exception as e:
         print(f"[RESEND API] Failed to send email via Resend: {e}")
         return False, str(e)
@@ -891,26 +895,20 @@ def send_email():
         params = tuple(selected_rolls) + (teacher_id,)
         students_to_email = db_manager.fetch_all(query, params)
 
-        try:
-            server, sender_email = get_smtp_connection(timeout=5)
+        sent_count = 0
+        for roll, email in students_to_email:
+            subject = "Attendance Alert - Absence Notification"
+            body = f"Dear Student ({roll}),\n\nYou were marked absent for Lecture {lecture_no}. Please ensure you attend the next classes.\n\nRegards,\nAutoAttend Attendance System"
 
-            for roll, email in students_to_email:
-                subject = "Attendance Alert - Absence Notification"
-                body = f"Dear Student ({roll}),\n\nYou were marked absent for Lecture {lecture_no}. Please ensure you attend the next classes.\n\nRegards,\nAutoAttend Attendance System"
+            success, msg = send_email_message(email, subject, body, timeout=5)
+            if success:
+                sent_count += 1
 
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-
-                server.sendmail(sender_email, email, msg.as_string())
-
-            server.quit()
-            flash(f"Successfully sent alert emails to {len(students_to_email)} students!", "success")
-            return redirect(url_for('send_email', lecture_no=lecture_no))
-        except Exception as e:
-            flash(f"Failed to send emails. Error: {e}", "danger")
-            return redirect(url_for('send_email', lecture_no=lecture_no))
+        if sent_count > 0:
+            flash(f"Successfully sent alert emails to {sent_count} students!", "success")
+        else:
+            flash("Failed to send alert emails. Please configure RESEND_API_KEY or check network/SMTP settings.", "danger")
+        return redirect(url_for('send_email', lecture_no=lecture_no))
 
 # ---------------- NEW PROFESSIONAL ROUTES ----------------
 @app.route('/analytics')
