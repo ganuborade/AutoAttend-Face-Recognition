@@ -9,8 +9,6 @@ import mysql.connector
 import smtplib
 from email.mime.text import MIMEText
 import pickle
-from train import train_model
-train_model()
 from database import db_manager
 import threading
 from functools import wraps
@@ -305,9 +303,17 @@ def capture_biometrics(roll):
 
 def background_tasks(roll, name, email):
     try:
+        # Import the training module only when training is actually requested.
+        # This prevents model training from happening when Gunicorn imports app.py.
+        from train import train_model
+
         print(f"Training model after biometric capture for Roll No: {roll}")
-        train_model()
+        success = train_model()
+        if not success:
+            raise RuntimeError("Model training returned False.")
+
         print("Model training completed.")
+
     except Exception as e:
         print("Model training error:", e)
         capture_status[roll] = "error"
@@ -674,6 +680,7 @@ def delete_student(roll):
         shutil.rmtree(folder_path)
         
     # Retrain model since a student is removed
+    from train import train_model
     train_model()
     
     return redirect(url_for('view_students'))
@@ -848,8 +855,14 @@ def settings():
 @login_required
 def retrain_model_route():
     try:
-        train_model()
-        flash("Model retraining completed successfully!", "success")
+        # Import only when the user explicitly requests retraining.
+        from train import train_model
+
+        success = train_model()
+        if success:
+            flash("Model retraining completed successfully!", "success")
+        else:
+            flash("Model retraining failed. Check the server logs.", "danger")
     except Exception as e:
         flash(f"Error during retraining: {e}", "danger")
     return redirect(url_for('settings'))
@@ -1034,6 +1047,19 @@ def hod_teacher_students(teacher_id):
     students = db_manager.fetch_all("SELECT name, roll, email, year, branch, division FROM students WHERE teacher_id=%s", (teacher_id,))
     return render_template("hod_teacher_students.html", students=students, teacher_name=teacher[0], teacher_id=teacher_id)
 
+def retrain_model_background():
+    try:
+        from train import train_model
+        print("Starting background model retraining...")
+        success = train_model()
+        if success:
+            print("Background model retraining completed.")
+        else:
+            print("Background model retraining failed.")
+    except Exception as e:
+        print("Background model retraining error:", e)
+
+
 @app.route('/hod/teacher/<int:teacher_id>/delete_student/<roll>', methods=['POST'])
 @hod_required
 def hod_delete_student(teacher_id, roll):
@@ -1045,7 +1071,10 @@ def hod_delete_student(teacher_id, roll):
     if os.path.exists(folder_path):
         shutil.rmtree(folder_path)
         
-    threading.Thread(target=train_model).start()
+    threading.Thread(
+        target=retrain_model_background,
+        daemon=True
+    ).start()
     flash(f"Student {roll} deleted successfully.", "success")
     return redirect(url_for('hod_teacher_students', teacher_id=teacher_id))
 
