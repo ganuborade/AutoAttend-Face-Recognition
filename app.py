@@ -141,24 +141,43 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def send_welcome_email(email, name, role):
+def get_smtp_connection(timeout=5):
+    """Establish connection to SMTP server with configurable timeout."""
+    sender_email = os.getenv("SENDER_EMAIL")
+    sender_password = os.getenv("SENDER_PASSWORD")
+    if not sender_email or not sender_password:
+        raise ValueError("SENDER_EMAIL or SENDER_PASSWORD environment variables are not set.")
+
+    server = smtplib.SMTP('smtp.gmail.com', 587, timeout=timeout)
+    server.starttls()
+    server.login(sender_email, sender_password)
+    return server, sender_email
+
+
+def send_email_message(to_email, subject, body, timeout=5):
+    """Utility helper to send a single email safely with error catching."""
     try:
-        sender_email = os.getenv("SENDER_EMAIL")
-        sender_password = os.getenv("SENDER_PASSWORD")
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        subject = f"Welcome to AutoAttend - {role} Registration"
-        body = f"Hello {name},\n\nYou have successfully registered as a {role} in the AutoAttend Attendance System.\n\nWelcome aboard!"
+        server, sender_email = get_smtp_connection(timeout=timeout)
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = sender_email
-        msg['To'] = email
-        server.sendmail(sender_email, email, msg.as_string())
+        msg['To'] = to_email
+        server.sendmail(sender_email, to_email, msg.as_string())
         server.quit()
-        print(f"Welcome email sent to {role}: {email}")
+        return True, "Email sent successfully."
     except Exception as e:
-        print(f"Failed to send welcome email to {email}: {e}")
+        print(f"Email error for {to_email}: {e}")
+        return False, str(e)
+
+
+def send_welcome_email(email, name, role):
+    subject = f"Welcome to AutoAttend - {role} Registration"
+    body = f"Hello {name},\n\nYou have successfully registered as a {role} in the AutoAttend Attendance System.\n\nWelcome aboard!"
+    success, msg = send_email_message(email, subject, body, timeout=5)
+    if success:
+        print(f"Welcome email sent to {role}: {email}")
+    else:
+        print(f"Failed to send welcome email to {email}: {msg}")
 
 # ---------------- LOGIN & REGISTRATION ----------------
 @app.route('/health')
@@ -232,24 +251,14 @@ def register():
         }
         
         if email:
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Registration OTP Verification"
-                body = f"Hello {name},\n\nYour OTP for AutoAttend Registration is: {otp}\n\nPlease enter this to verify your email."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Registration OTP Verification"
+            body = f"Hello {name},\n\nYour OTP for AutoAttend Registration is: {otp}\n\nPlease enter this to verify your email."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your email to complete registration.", "info")
-            except Exception as e:
-                print(f"OTP Email error: {e}")
-                flash("Error sending OTP. Please try again.", "danger")
+            else:
+                print(f"OTP Email error: {err_msg}")
+                flash(f"Error sending OTP: {err_msg}. Please check SMTP credentials or network settings.", "danger")
                 return redirect(url_for('register'))
         else:
             flash("Email is required for OTP verification.", "danger")
@@ -821,13 +830,8 @@ def send_email():
         params = tuple(selected_rolls) + (teacher_id,)
         students_to_email = db_manager.fetch_all(query, params)
 
-        sender_email = os.getenv("SENDER_EMAIL")
-        sender_password = os.getenv("SENDER_PASSWORD")
-
         try:
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(sender_email, sender_password)
+            server, sender_email = get_smtp_connection(timeout=5)
 
             for roll, email in students_to_email:
                 subject = "Attendance Alert - Absence Notification"
@@ -961,24 +965,14 @@ def hod_register():
         }
         
         if email:
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Registration OTP Verification"
-                body = f"Hello {name},\n\nYour OTP for AutoAttend Registration is: {otp}\n\nPlease enter this to verify your email."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Registration OTP Verification"
+            body = f"Hello {name},\n\nYour OTP for AutoAttend Registration is: {otp}\n\nPlease enter this to verify your email."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your email to complete registration.", "info")
-            except Exception as e:
-                print(f"OTP Email error: {e}")
-                flash("Error sending OTP. Please try again.", "danger")
+            else:
+                print(f"OTP Email error: {err_msg}")
+                flash(f"Error sending OTP: {err_msg}. Please check SMTP credentials or network settings.", "danger")
                 return redirect(url_for('hod_register'))
         else:
             flash("Email is required for OTP verification.", "danger")
@@ -1243,24 +1237,14 @@ def student_register():
         }
         
         if email:
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Registration OTP Verification"
-                body = f"Hello {name},\n\nYour OTP for AutoAttend Registration is: {otp}\n\nPlease enter this to verify your email."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Registration OTP Verification"
+            body = f"Hello {name},\n\nYour OTP for AutoAttend Registration is: {otp}\n\nPlease enter this to verify your email."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your email to complete registration.", "info")
-            except Exception as e:
-                print(f"OTP Email error: {e}")
-                flash("Error sending OTP. Please try again.", "danger")
+            else:
+                print(f"OTP Email error: {err_msg}")
+                flash(f"Error sending OTP: {err_msg}. Please check SMTP credentials or network settings.", "danger")
                 return redirect(url_for('student_register'))
         else:
             flash("Email is required for OTP verification.", "danger")
@@ -1329,24 +1313,14 @@ def forgot_password():
                 new_pass = generate_random_password()
                 db_manager.execute_query(f"UPDATE {table} SET password=%s WHERE id=%s", (new_pass, user[0]))
                 
-                # Send Email
-                try:
-                    sender_email = os.getenv("SENDER_EMAIL")
-                    sender_password = os.getenv("SENDER_PASSWORD")
-                    server = smtplib.SMTP('smtp.gmail.com', 587)
-                    server.starttls()
-                    server.login(sender_email, sender_password)
-                    subject = "AutoAttend - Password Reset"
-                    body = f"Hello,\n\nYour password has been successfully reset.\n\nYour new password is: {new_pass}\n\nPlease login and keep this safe."
-                    msg = MIMEText(body)
-                    msg['Subject'] = subject
-                    msg['From'] = sender_email
-                    msg['To'] = email
-                    server.sendmail(sender_email, email, msg.as_string())
-                    server.quit()
+                subject = "AutoAttend - Password Reset"
+                body = f"Hello,\n\nYour password has been successfully reset.\n\nYour new password is: {new_pass}\n\nPlease login and keep this safe."
+                success, err_msg = send_email_message(email, subject, body, timeout=5)
+                if success:
                     flash("A new password has been sent to your email.", "success")
-                except:
-                    flash("Error sending email. Please try again later.", "danger")
+                else:
+                    print(f"Password reset email error: {err_msg}")
+                    flash(f"Error sending email: {err_msg}. Please try again later.", "danger")
             else:
                 flash("No matching record found for the provided details.", "danger")
                 
@@ -1398,25 +1372,15 @@ def change_password():
             otp = generate_otp()
             session['change_pwd_otp'] = otp
             
-            # Send Email
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Password Change Verification"
-                body = f"Hello,\n\nYour OTP to change your password is: {otp}\n\nDo not share this with anyone."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Password Change Verification"
+            body = f"Hello,\n\nYour OTP to change your password is: {otp}\n\nDo not share this with anyone."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your email.", "success")
                 return render_template("change_password.html", otp_sent=True, role=role, email=email)
-            except Exception as e:
-                flash("Error sending OTP email. Please try again later.", "danger")
+            else:
+                print(f"Change password OTP email error: {err_msg}")
+                flash(f"Error sending OTP email: {err_msg}. Please try again later.", "danger")
                 return redirect(url_for(f'{role}_profile'))
                 
         elif action == 'verify_otp':
@@ -1464,24 +1428,15 @@ def teacher_profile():
                 'university': university,
                 'sex': sex
             }
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Verify New Email Address"
-                body = f"Hello {name},\n\nYour OTP to verify your new email address is: {otp}\n\nIf you did not request this change, please ignore this email."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Verify New Email Address"
+            body = f"Hello {name},\n\nYour OTP to verify your new email address is: {otp}\n\nIf you did not request this change, please ignore this email."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your new email address for verification.", "info")
                 return redirect(url_for('verify_profile_update_otp'))
-            except Exception as e:
-                flash("Error sending OTP to new email. Please try again.", "danger")
+            else:
+                print(f"Teacher profile email update OTP error: {err_msg}")
+                flash(f"Error sending OTP to new email: {err_msg}. Please try again.", "danger")
                 return redirect(url_for('teacher_profile'))
         else:
             db_manager.execute_query("UPDATE teachers SET name=%s, mobile=%s, address=%s, email=%s, college=%s, university=%s, sex=%s WHERE id=%s", 
@@ -1521,24 +1476,15 @@ def hod_profile():
                 'university': university,
                 'sex': sex
             }
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Verify New Email Address"
-                body = f"Hello {name},\n\nYour OTP to verify your new email address is: {otp}\n\nIf you did not request this change, please ignore this email."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Verify New Email Address"
+            body = f"Hello {name},\n\nYour OTP to verify your new email address is: {otp}\n\nIf you did not request this change, please ignore this email."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your new email address for verification.", "info")
                 return redirect(url_for('verify_profile_update_otp'))
-            except Exception as e:
-                flash("Error sending OTP to new email. Please try again.", "danger")
+            else:
+                print(f"HOD profile email update OTP error: {err_msg}")
+                flash(f"Error sending OTP to new email: {err_msg}. Please try again.", "danger")
                 return redirect(url_for('hod_profile'))
         else:
             db_manager.execute_query("UPDATE hods SET name=%s, mobile=%s, address=%s, email=%s, college=%s, university=%s, sex=%s WHERE id=%s", 
@@ -1578,24 +1524,15 @@ def student_profile():
                 'taluka': taluka,
                 'sex': sex
             }
-            try:
-                sender_email = os.getenv("SENDER_EMAIL")
-                sender_password = os.getenv("SENDER_PASSWORD")
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                subject = "AutoAttend - Verify New Email Address"
-                body = f"Hello {name},\n\nYour OTP to verify your new email address is: {otp}\n\nIf you did not request this change, please ignore this email."
-                msg = MIMEText(body)
-                msg['Subject'] = subject
-                msg['From'] = sender_email
-                msg['To'] = email
-                server.sendmail(sender_email, email, msg.as_string())
-                server.quit()
+            subject = "AutoAttend - Verify New Email Address"
+            body = f"Hello {name},\n\nYour OTP to verify your new email address is: {otp}\n\nIf you did not request this change, please ignore this email."
+            success, err_msg = send_email_message(email, subject, body, timeout=5)
+            if success:
                 flash("An OTP has been sent to your new email address for verification.", "info")
                 return redirect(url_for('verify_profile_update_otp'))
-            except Exception as e:
-                flash("Error sending OTP to new email. Please try again.", "danger")
+            else:
+                print(f"Student profile email update OTP error: {err_msg}")
+                flash(f"Error sending OTP to new email: {err_msg}. Please try again.", "danger")
                 return redirect(url_for('student_profile'))
         else:
             db_manager.execute_query("UPDATE student_users SET name=%s, mobile=%s, address=%s, email=%s, district=%s, taluka=%s, sex=%s WHERE id=%s", 
@@ -1645,24 +1582,15 @@ def request_delete_profile():
     session['delete_profile_role'] = role
     session['delete_profile_id'] = user_id
     
-    try:
-        sender_email = os.getenv("SENDER_EMAIL")
-        sender_password = os.getenv("SENDER_PASSWORD")
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        subject = "AutoAttend - Profile Deletion Verification"
-        body = f"Hello {name},\n\nYou have requested to delete your profile. Your OTP is: {otp}\n\nIf you did not request this, please change your password immediately."
-        msg = MIMEText(body)
-        msg['Subject'] = subject
-        msg['From'] = sender_email
-        msg['To'] = email
-        server.sendmail(sender_email, email, msg.as_string())
-        server.quit()
+    subject = "AutoAttend - Profile Deletion Verification"
+    body = f"Hello {name},\n\nYou have requested to delete your profile. Your OTP is: {otp}\n\nIf you did not request this, please change your password immediately."
+    success, err_msg = send_email_message(email, subject, body, timeout=5)
+    if success:
         flash("An OTP has been sent to your registered email for verification.", "info")
         return render_template("verify_delete_profile_otp.html", email=email)
-    except Exception as e:
-        flash("Error sending OTP email. Please try again later.", "danger")
+    else:
+        print(f"Delete profile OTP email error: {err_msg}")
+        flash(f"Error sending OTP email: {err_msg}. Please try again later.", "danger")
         return redirect(url_for(f'{role}_profile'))
 
 @app.route('/verify_delete_profile', methods=['POST'])
