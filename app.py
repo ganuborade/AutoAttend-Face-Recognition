@@ -44,33 +44,73 @@ def project_path(filename):
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
 
+# Thread-safe caching for face recognition models and cascade classifiers
+_cached_recognizer = None
+_cached_id_to_label = None
+_cached_face_cascade = None
+_cached_model_mtime = 0.0
+_cached_label_map_mtime = 0.0
+_model_cache_lock = threading.Lock()
+
+
+def get_face_cascade():
+    """Load and cache the Haar Cascade classifier globally as it never changes."""
+    global _cached_face_cascade
+    if _cached_face_cascade is None:
+        cascade_path = project_path("haarcascade_frontalface_default.xml")
+        if not os.path.exists(cascade_path):
+            raise FileNotFoundError("haarcascade_frontalface_default.xml not found.")
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+        if face_cascade.empty():
+            raise RuntimeError("Unable to load Haar Cascade.")
+        _cached_face_cascade = face_cascade
+    return _cached_face_cascade
+
+
 def load_face_model():
-    """Load LBPH model, label map and Haar cascade using absolute paths."""
+    """Load LBPH model, label map and Haar cascade using absolute paths, using cached copies when files haven't changed."""
+    global _cached_recognizer, _cached_id_to_label, _cached_model_mtime, _cached_label_map_mtime
+
     trainer_path = project_path("trainer.yml")
     label_map_path = project_path("label_map.pkl")
-    cascade_path = project_path("haarcascade_frontalface_default.xml")
 
     if not os.path.exists(trainer_path):
         raise FileNotFoundError("trainer.yml not found. Train the model first.")
     if not os.path.exists(label_map_path):
         raise FileNotFoundError("label_map.pkl not found. Train the model first.")
-    if not os.path.exists(cascade_path):
-        raise FileNotFoundError("haarcascade_frontalface_default.xml not found.")
 
-    if not hasattr(cv2, "face"):
-        raise RuntimeError("cv2.face is unavailable. Install opencv-contrib-python.")
+    try:
+        t_mtime = os.path.getmtime(trainer_path)
+        l_mtime = os.path.getmtime(label_map_path)
+    except OSError:
+        t_mtime = 0.0
+        l_mtime = 0.0
 
-    recognizer = cv2.face.LBPHFaceRecognizer_create()
-    recognizer.read(trainer_path)
+    face_cascade = get_face_cascade()
 
-    with open(label_map_path, "rb") as f:
-        id_to_label = pickle.load(f)
+    with _model_cache_lock:
+        if (_cached_recognizer is None or
+            _cached_id_to_label is None or
+            t_mtime > _cached_model_mtime or
+            l_mtime > _cached_label_map_mtime):
+            
+            print(f"[CACHE] Loading/Reloading face recognition model (mtimes: {t_mtime}, {l_mtime})...")
+            
+            if not hasattr(cv2, "face"):
+                raise RuntimeError("cv2.face is unavailable. Install opencv-contrib-python.")
 
-    face_cascade = cv2.CascadeClassifier(cascade_path)
-    if face_cascade.empty():
-        raise RuntimeError("Unable to load Haar Cascade.")
+            recognizer = cv2.face.LBPHFaceRecognizer_create()
+            recognizer.read(trainer_path)
 
-    return recognizer, id_to_label, face_cascade
+            with open(label_map_path, "rb") as f:
+                id_to_label = pickle.load(f)
+
+            _cached_recognizer = recognizer
+            _cached_id_to_label = id_to_label
+            _cached_model_mtime = t_mtime
+            _cached_label_map_mtime = l_mtime
+
+    return _cached_recognizer, _cached_id_to_label, face_cascade
 
 
 def detect_largest_face(frame, face_cascade):
@@ -236,14 +276,18 @@ def dashboard():
         college = teacher_info[0] if teacher_info and teacher_info[0] else "Not specified"
         university = teacher_info[1] if teacher_info and teacher_info[1] else "Not specified"
         
-        # Get chart data for last 5 lectures
-        lectures = db_manager.fetch_all("SELECT DISTINCT lecture_no FROM attendance WHERE teacher_id=%s ORDER BY lecture_no DESC LIMIT 5", (teacher_id,))
-        labels = [f"Lecture {l[0]}" for l in lectures][::-1]
-        
-        data_points = []
-        for l in lectures[::-1]:
-            count = db_manager.fetch_one("SELECT COUNT(*) FROM attendance WHERE lecture_no=%s AND teacher_id=%s", (l[0], teacher_id))[0]
-            data_points.append(count)
+        # Get chart data for last 5 lectures using a single query
+        results = db_manager.fetch_all("""
+            SELECT lecture_no, COUNT(*) 
+            FROM attendance 
+            WHERE teacher_id = %s 
+            GROUP BY lecture_no 
+            ORDER BY lecture_no DESC 
+            LIMIT 5
+        """, (teacher_id,))
+        results = results[::-1]
+        labels = [f"Lecture {r[0]}" for r in results]
+        data_points = [r[1] for r in results]
     except:
         labels = []
         data_points = []
@@ -340,10 +384,7 @@ def capture_frame(roll):
         if frame is None:
             return {"success": False, "message": "Could not decode camera frame."}, 400
 
-        cascade_path = project_path("haarcascade_frontalface_default.xml")
-        face_cascade = cv2.CascadeClassifier(cascade_path)
-        if face_cascade.empty():
-            raise RuntimeError("Unable to load Haar Cascade.")
+        face_cascade = get_face_cascade()
         gray, face_rect = detect_largest_face(frame, face_cascade)
         folder_path = os.path.join(project_path('static'), 'images', roll)
         os.makedirs(folder_path, exist_ok=True)

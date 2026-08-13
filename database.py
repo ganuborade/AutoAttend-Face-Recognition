@@ -77,17 +77,7 @@ class Database:
             if self.pool is None:
                 self._create_pool()
 
-            db = self.pool.get_connection()
-
-            # Check connection health.
-            # Reconnect if the connection was dropped.
-            db.ping(
-                reconnect=True,
-                attempts=2,
-                delay=0.5
-            )
-
-            return db
+            return self.pool.get_connection()
 
         except Exception as e:
 
@@ -98,15 +88,7 @@ class Database:
 
             self._create_pool()
 
-            db = self.pool.get_connection()
-
-            db.ping(
-                reconnect=True,
-                attempts=2,
-                delay=0.5
-            )
-
-            return db
+            return self.pool.get_connection()
 
     # ---------------------------------------------------------
     # RESET POOL AFTER A CONNECTION FAILURE
