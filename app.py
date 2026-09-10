@@ -18,7 +18,7 @@ import string
 import random
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY")
+app.secret_key = os.getenv("SECRET_KEY", "autoattend-secret-key-change-in-env")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 STATIC_IMAGES_DIR = os.path.join(
@@ -1051,7 +1051,8 @@ def retrain_model_route():
 @app.route('/support')
 @login_required
 def support():
-    return render_template("support.html")
+    support_email = os.getenv("SUPPORT_EMAIL", os.getenv("SENDER_EMAIL", "support@autoattend.com"))
+    return render_template("support.html", support_email=support_email)
 
 # ---------------- HOD PORTAL ----------------
 @app.route('/hod_register', methods=['GET', 'POST'])

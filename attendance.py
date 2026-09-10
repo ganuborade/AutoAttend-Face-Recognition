@@ -2,16 +2,27 @@ import cv2
 import os
 import numpy as np
 from datetime import datetime
+from dotenv import load_dotenv
 import mysql.connector
 
+load_dotenv()
+
 # ---------------- DATABASE ----------------
-db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="Root@123"
-)
+try:
+    from database import db_manager
+    db = db_manager.connect()
+except Exception:
+    db = None
+
+if not db:
+    db = mysql.connector.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        port=int(os.getenv("DB_PORT", "3306")),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", ""),
+        database=os.getenv("DB_NAME", "attendance_system")
+    )
 cursor = db.cursor()
-cursor.execute("USE attendance_system")
 
 # ---------------- LOAD IMAGES ----------------
 path = "static/images"
