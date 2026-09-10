@@ -10,11 +10,11 @@ load_dotenv()
 class Database:
 
     def __init__(self):
-        self.host = os.getenv("DB_HOST")
+        self.host = os.getenv("DB_HOST", "localhost")
         self.port = int(os.getenv("DB_PORT", "3306"))
-        self.user = os.getenv("DB_USER")
-        self.password = os.getenv("DB_PASSWORD")
-        self.database = os.getenv("DB_NAME")
+        self.user = os.getenv("DB_USER", "root")
+        self.password = os.getenv("DB_PASSWORD", "")
+        self.database = os.getenv("DB_NAME", "attendance_system")
 
         # Connection-pool settings
         self.pool_name = "autoattend_pool"

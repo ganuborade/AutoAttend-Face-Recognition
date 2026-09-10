@@ -1,8 +1,38 @@
+# Virtual environments
 venv/
+.venv/
+env/
+ENV/
+
+# Environment Variables & Secrets (CRITICAL)
 .env
+.env.*
+*.env
+!.env.example
+
+# Python cache & bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# Database dumps & local database files
+*.sql
+*.sqlite3
+*.db
+attendance_system_backup.sql
+
+# Biometric and user images (Student privacy)
+static/images/
+
+# Model checkpoints & cache (can be regenerated)
+# trainer.yml
+# label_map.pkl
+
+# IDE and OS files
 .vscode/
 .idea/
-static/images/
-attendance_system_backup.sql
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
